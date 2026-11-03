@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merge PDF - PDFCombine</title>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f1f5f9;color:#172554;margin:0;padding:30px 15px}
+.container{max-width:650px;margin:30px auto;background:white;padding:30px;border-radius:16px;box-shadow:0 5px 25px #0001;text-align:center}
+h1{color:#2563eb}
+p{color:#64748b;line-height:1.6}
+.upload{display:block;background:#eff6ff;border:2px dashed #2563eb;border-radius:12px;padding:35px 15px;margin:25px 0;cursor:pointer}
+input{max-width:100%}
+button{background:#2563eb;color:white;border:0;border-radius:8px;padding:14px 25px;font-size:16px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+#status{margin-top:20px;font-weight:bold}
+#fileList{font-size:14px;text-align:left;color:#334155;line-height:2}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Merge PDF Files</h1>
+<p>Combine multiple PDF documents into one file for free.</p>
+
+<label class="upload">
+<strong>Select PDF Files</strong>
+<p>Choose two or more PDF files from your device.</p>
+<input type="file" id="files" accept="application/pdf,.pdf" multiple>
+</label>
+
+<div id="fileList">No files selected.</div>
+
+<br>
+<button id="mergeBtn" disabled>Merge PDF</button>
+<div id="status"></div>
+<p style="font-size:12px">Your selected files are processed in your browser.</p>
+</div>
+
+<script>
+const input = document.getElementById('files');
+const button = document.getElementById('mergeBtn');
+const statusBox = document.getElementById('status');
+const fileList = document.getElementById('fileList');
+
+input.addEventListener('change', () => {
+  const files = Array.from(input.files);
+  fileList.innerHTML = files.length
+    ? files.map((f,i) => `${i+1}. ${f.name}`).join('<br>')
+    : 'No files selected.';
+  button.disabled = files.length < 2;
+  statusBox.textContent = files.length === 1
+    ? 'Please select at least two PDF files.'
+    : '';
+});
+
+button.addEventListener('click', async () => {
+  const files = Array.from(input.files);
+  if (files.length < 2) return;
+
+  button.disabled = true;
+  statusBox.textContent = 'Merging your PDF files...';
+
+  try {
+    const mergedPdf = await PDFLib.PDFDocument.create();
+
+    for (const file of files) {
+      const bytes = await file.arrayBuffer();
+      const pdf = await PDFLib.PDFDocument.load(bytes);
+      const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      pages.forEach(page => mergedPdf.addPage(page));
+    }
+
+    const mergedBytes = await mergedPdf.save();
+    const blob = new Blob([mergedBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'PDFCombine-Merged.pdf';
+    link.click();
+
+    URL.revokeObjectURL(url);
+    statusBox.textContent = 'Success! Your merged PDF has been downloaded.';
+  } catch (error) {
+    statusBox.textContent = 'Could not merge these files. Please check that they are valid, unprotected PDFs.';
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
