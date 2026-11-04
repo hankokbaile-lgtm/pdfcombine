@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word to PDF Converter - PDFCombine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:25px;color:#172554}
+.container{max-width:650px;margin:50px auto;background:white;padding:30px;border-radius:14px;text-align:center;box-shadow:0 4px 15px #0001}
+h1{color:#1d4ed8}
+input{margin:25px 0;padding:12px;width:90%;border:1px solid #ccc;border-radius:8px}
+button{background:#2563eb;color:white;border:0;padding:14px 25px;border-radius:8px;font-size:16px;cursor:pointer}
+button:disabled{background:#999}
+#status{margin-top:20px;color:#166534}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Word to PDF Converter</h1>
+<p>Select a DOCX file and convert its text into a PDF.</p>
+<input type="file" id="file" accept=".docx">
+<br>
+<button id="convert">Convert to PDF</button>
+<p id="status"></p>
+</div>
+<script>
+document.getElementById("convert").addEventListener("click", async function(){
+ const file=document.getElementById("file").files[0];
+ const status=document.getElementById("status");
+ if(!file){status.textContent="Please select a DOCX file first.";return;}
+ if(!window.docx || !window.saveAs){status.textContent="Converter library failed to load. Refresh and try again.";return;}
+ this.disabled=true;
+ status.textContent="Converting...";
+ try{
+  const buffer=await file.arrayBuffer();
+  const result=await docx.Document.load(buffer);
+  const textContent=result.paragraphs.map(p=>p.text).join("\n");
+  const pdfText=textContent || "No readable text found in this document.";
+  const {jsPDF}=await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js");
+  const pdf=new jsPDF();
+  const lines=pdf.splitTextToSize(pdfText,180);
+  let y=15;
+  for(const line of lines){
+   if(y>280){pdf.addPage();y=15;}
+   pdf.text(line,15,y);y+=7;
+  }
+  pdf.save(file.name.replace(/\.docx$/i,"")+".pdf");
+  status.textContent="PDF created successfully!";
+ }catch(e){
+  status.textContent="Conversion failed. Please try another DOCX file.";
+  console.error(e);
+ }
+ this.disabled=false;
+});
+</script>
+</body>
+</html>
