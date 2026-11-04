@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Split PDF - PDFCombine</title>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#eff6ff;margin:0;padding:30px 15px;color:#172554}
+.container{max-width:650px;margin:40px auto;background:white;padding:30px;border-radius:15px;text-align:center;box-shadow:0 5px 20px #0001}
+h1{color:#172554}
+input,button{margin:15px 0;padding:13px;width:100%;box-sizing:border-box}
+button{background:#2563eb;color:white;border:0;border-radius:8px;font-size:17px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+input{border:1px solid #ccc;border-radius:8px}
+p{line-height:1.6}
+#status{font-weight:bold}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Split PDF Files</h1>
+<p>Extract selected pages from your PDF into a new PDF file.</p>
+<input type="file" id="pdfFile" accept="application/pdf">
+<label for="pages">Page numbers (example: 1,3,5 or 2-4):</label>
+<input type="text" id="pages" placeholder="Example: 1,3,5">
+<button id="splitBtn" onclick="splitPDF()">Split PDF</button>
+<p id="status">Select a PDF and enter the page numbers.</p>
+</div>
+<script>
+async function splitPDF(){
+ const file=document.getElementById('pdfFile').files[0];
+ const pageText=document.getElementById('pages').value.trim();
+ const status=document.getElementById('status');
+ const btn=document.getElementById('splitBtn');
+ if(!file){status.textContent='Please select a PDF file.';return;}
+ if(!pageText){status.textContent='Please enter page numbers.';return;}
+ if(!window.PDFLib){status.textContent='PDF library could not load. Check your internet connection.';return;}
+ btn.disabled=true;
+ try{
+  const bytes=await file.arrayBuffer();
+  const source=await PDFLib.PDFDocument.load(bytes);
+  const total=source.getPageCount();
+  const selected=new Set();
+  for(const part of pageText.split(',')){
+   const item=part.trim();
+   if(/^\d+$/.test(item)){
+    selected.add(Number(item));
+   }else if(/^\d+\s*-\s*\d+$/.test(item)){
+    const [start,end]=item.split('-').map(Number);
+    if(start>end) throw new Error('Page range must be in ascending order.');
+    for(let n=start;n<=end;n++) selected.add(n);
+   }else{
+    throw new Error('Use page numbers like 1,3,5 or a range like 2-4.');
+   }
+  }
+  const pages=[...selected].sort((a,b)=>a-b);
+  if(!pages.length || pages.some(n=>n<1 || n>total)){
+   throw new Error('Enter page numbers between 1 and '+total+'.');
+  }
+  const output=await PDFLib.PDFDocument.create();
+  const copied=await output.copyPages(source,pages.map(n=>n-1));
+  copied.forEach(page=>output.addPage(page));
+  const result=await output.save();
+  const blob=new Blob([result],{type:'application/pdf'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='split-pages.pdf';a.click();
+  URL.revokeObjectURL(url);
+  status.textContent='Success! Your selected pages have been downloaded.';
+ }catch(e){
+  status.textContent='Error: '+e.message;
+ }finally{
+  btn.disabled=false;
+ }
+}
+</script>
+</body>
+</html>
