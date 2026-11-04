@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotate PDF - PDFCombine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:20px;color:#172554}
+.container{max-width:600px;margin:50px auto;background:white;padding:30px;border-radius:14px;text-align:center;box-shadow:0 4px 15px #0001}
+h1{color:#2563eb}
+input,select{margin:15px 0;padding:12px;width:90%;border:1px solid #ccc;border-radius:8px}
+button{background:#2563eb;color:white;border:0;padding:14px 25px;border-radius:8px;font-size:16px;cursor:pointer}
+#status{margin-top:20px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Rotate PDF</h1>
+<p>Rotate all pages of your PDF document.</p>
+
+<input type="file" id="pdfFile" accept="application/pdf">
+<br>
+
+<select id="angle">
+<option value="90">Rotate 90° Clockwise</option>
+<option value="180">Rotate 180°</option>
+<option value="270">Rotate 270° Clockwise</option>
+</select>
+<br>
+
+<button id="rotateBtn">Rotate PDF</button>
+<p id="status"></p>
+</div>
+
+<script>
+document.getElementById("rotateBtn").addEventListener("click",async()=>{
+ const file=document.getElementById("pdfFile").files[0];
+ const status=document.getElementById("status");
+
+ if(!file){
+  status.textContent="Please select a PDF file.";
+  return;
+ }
+
+ if(!window.PDFLib){
+  status.textContent="Library failed to load. Refresh and try again.";
+  return;
+ }
+
+ status.textContent="Rotating PDF...";
+ try{
+  const {PDFDocument,degrees}=PDFLib;
+  const bytes=await file.arrayBuffer();
+  const pdf=await PDFDocument.load(bytes);
+  const angle=Number(document.getElementById("angle").value);
+
+  pdf.getPages().forEach(page=>{
+   const current=page.getRotation().angle;
+   page.setRotation(degrees((current+angle)%360));
+  });
+
+  const output=await pdf.save();
+  const blob=new Blob([output],{type:"application/pdf"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="rotated-"+file.name;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  status.textContent="PDF rotated successfully!";
+ }catch(error){
+  console.error(error);
+  status.textContent="Rotation failed. Please try another PDF.";
+ }
+});
+</script>
+</body>
+</html>
