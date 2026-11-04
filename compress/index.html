@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compress PDF - PDFCombine</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{font-family:Arial;background:#eff6ff;color:#172554;padding:20px;margin:0}
+.container{max-width:650px;background:white;margin:40px auto;padding:30px;border-radius:15px;text-align:center;box-shadow:0 5px 20px #0001}
+h1{color:#172554}
+input,button{width:100%;box-sizing:border-box;padding:14px;margin:12px 0;border-radius:8px}
+input{border:1px solid #ccc}
+button{background:#2563eb;color:white;border:0;font-size:17px;cursor:pointer}
+button:disabled{opacity:.5}
+#status{font-weight:bold;line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>Compress PDF</h1>
+<p>Reduce your PDF file size using browser-based compression.</p>
+
+<input type="file" id="pdfFile" accept="application/pdf">
+
+<label for="quality">Compression quality:</label>
+<select id="quality" style="width:100%;padding:12px;border-radius:8px">
+<option value="0.8">High quality</option>
+<option value="0.6" selected>Medium quality</option>
+<option value="0.4">Smallest file</option>
+</select>
+
+<button id="compressBtn" onclick="compressPDF()">Compress PDF</button>
+<p id="status">Select a PDF file to begin.</p>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function compressPDF(){
+ const file=document.getElementById('pdfFile').files[0];
+ const status=document.getElementById('status');
+ const btn=document.getElementById('compressBtn');
+
+ if(!file){status.textContent='Please select a PDF file.';return;}
+
+ btn.disabled=true;
+ status.textContent='Compressing PDF... Please wait.';
+
+ try{
+  const quality=Number(document.getElementById('quality').value);
+  const data=new Uint8Array(await file.arrayBuffer());
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+  const {jsPDF}=window.jspdf;
+  let output=null;
+
+  for(let i=1;i<=pdf.numPages;i++){
+   const page=await pdf.getPage(i);
+   const viewport=page.getViewport({scale:1.3});
+   const canvas=document.createElement('canvas');
+   const context=canvas.getContext('2d');
+
+   canvas.width=Math.ceil(viewport.width);
+   canvas.height=Math.ceil(viewport.height);
+
+   await page.render({canvasContext:context,viewport}).promise;
+
+   const image=canvas.toDataURL('image/jpeg',quality);
+   const width=viewport.width;
+   const height=viewport.height;
+
+   if(i===1){
+    output=new jsPDF({orientation:width>height?'landscape':'portrait',unit:'pt',format:[width,height]});
+   }else{
+    output.addPage([width,height],width>height?'landscape':'portrait');
+   }
+
+   output.addImage(image,'JPEG',0,0,width,height);
+   canvas.width=0;
+   canvas.height=0;
+  }
+
+  const blob=output.output('blob');
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='compressed-pdf.pdf';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+  const before=(file.size/1024).toFixed(1);
+  const after=(blob.size/1024).toFixed(1);
+
+  status.textContent='Finished! Original: '+before+' KB. New PDF: '+after+' KB.';
+
+ }catch(error){
+  status.textContent='Error: '+error.message;
+ }finally{
+  btn.disabled=false;
+ }
+}
+</script>
+
+</body>
+</html>
