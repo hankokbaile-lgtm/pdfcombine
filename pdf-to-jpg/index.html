@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF to JPG - PDFCombine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:20px;color:#172554}
+.container{max-width:650px;margin:50px auto;background:white;padding:30px;border-radius:14px;text-align:center;box-shadow:0 4px 15px #0001}
+h1{color:#2563eb}
+input{margin:25px 0;padding:12px;width:90%}
+button{background:#2563eb;color:white;border:0;padding:14px 25px;border-radius:8px;font-size:16px;cursor:pointer}
+#status{margin-top:20px}
+#results{margin-top:20px}
+img{max-width:100%;margin:10px 0;border:1px solid #ddd}
+a{display:block;margin:10px;color:#2563eb}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>PDF to JPG Converter</h1>
+<p>Convert each page of your PDF into a JPG image.</p>
+<input type="file" id="pdfFile" accept="application/pdf">
+<br>
+<button id="convert">Convert to JPG</button>
+<p id="status"></p>
+<div id="results"></div>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+document.getElementById("convert").addEventListener("click",async()=>{
+ const file=document.getElementById("pdfFile").files[0];
+ const status=document.getElementById("status");
+ const results=document.getElementById("results");
+ results.innerHTML="";
+ if(!file){status.textContent="Please select a PDF file.";return;}
+ status.textContent="Converting PDF pages...";
+ try{
+  const bytes=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+  for(let i=1;i<=pdf.numPages;i++){
+   const page=await pdf.getPage(i);
+   const viewport=page.getViewport({scale:1.5});
+   const canvas=document.createElement("canvas");
+   const ctx=canvas.getContext("2d");
+   canvas.width=viewport.width;
+   canvas.height=viewport.height;
+   await page.render({canvasContext:ctx,viewport}).promise;
+   const jpg=canvas.toDataURL("image/jpeg",0.9);
+   const link=document.createElement("a");
+   link.href=jpg;
+   link.download="page-"+i+".jpg";
+   link.textContent="Download Page "+i+" as JPG";
+   results.appendChild(link);
+   const image=document.createElement("img");
+   image.src=jpg;
+   image.alt="PDF page "+i;
+   results.appendChild(image);
+  }
+  status.textContent="Conversion complete! Download your JPG images below.";
+ }catch(error){
+  console.error(error);
+  status.textContent="Conversion failed. Please try another PDF.";
+ }
+});
+</script>
+</body>
+</html>
