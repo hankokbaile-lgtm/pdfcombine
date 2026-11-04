@@ -1,0 +1,69 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JPG to PDF - PDFCombine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:20px;color:#172554}
+.container{max-width:600px;margin:50px auto;background:white;padding:30px;border-radius:14px;text-align:center;box-shadow:0 4px 15px #0001}
+h1{color:#2563eb}
+input{margin:25px 0;padding:12px;width:90%}
+button{background:#2563eb;color:white;border:0;padding:14px 25px;border-radius:8px;font-size:16px;cursor:pointer}
+#status{margin-top:20px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>JPG to PDF Converter</h1>
+<p>Select one or more JPG or PNG images to create a PDF.</p>
+<input type="file" id="images" accept="image/jpeg,image/png" multiple>
+<br>
+<button onclick="convertImages()">Convert to PDF</button>
+<p id="status"></p>
+</div>
+<script>
+async function convertImages(){
+ const files=document.getElementById("images").files;
+ const status=document.getElementById("status");
+ if(!files.length){status.textContent="Please select images first.";return;}
+ if(!window.jspdf){status.textContent="Library failed to load. Refresh and try again.";return;}
+ status.textContent="Creating PDF...";
+ try{
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF();
+  for(let i=0;i<files.length;i++){
+   const file=files[i];
+   if(!["image/jpeg","image/png"].includes(file.type))continue;
+   const data=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+   });
+   const image=new Image();
+   await new Promise((resolve,reject)=>{
+    image.onload=resolve;
+    image.onerror=reject;
+    image.src=data;
+   });
+   const pageWidth=pdf.internal.pageSize.getWidth();
+   const pageHeight=pdf.internal.pageSize.getHeight();
+   const ratio=Math.min((pageWidth-20)/image.width,(pageHeight-20)/image.height);
+   const width=image.width*ratio;
+   const height=image.height*ratio;
+   if(i>0)pdf.addPage();
+   pdf.addImage(data,file.type==="image/png"?"PNG":"JPEG",(pageWidth-width)/2,(pageHeight-height)/2,width,height);
+  }
+  pdf.save("images-to-pdf.pdf");
+  status.textContent="PDF created successfully!";
+ }catch(error){
+  console.error(error);
+  status.textContent="Conversion failed. Please try other images.";
+ }
+}
+</script>
+</body>
+</html>
