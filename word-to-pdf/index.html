@@ -4,56 +4,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Word to PDF Converter - PDFCombine</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<title>Word to PDF Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.9.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <style>
-body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:25px;color:#172554}
-.container{max-width:650px;margin:50px auto;background:white;padding:30px;border-radius:14px;text-align:center;box-shadow:0 4px 15px #0001}
-h1{color:#1d4ed8}
-input{margin:25px 0;padding:12px;width:90%;border:1px solid #ccc;border-radius:8px}
-button{background:#2563eb;color:white;border:0;padding:14px 25px;border-radius:8px;font-size:16px;cursor:pointer}
-button:disabled{background:#999}
-#status{margin-top:20px;color:#166534}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fc;color:#202b3c}
+.container{max-width:850px;margin:55px auto;padding:20px}
+h1{text-align:center;color:#2456c5}
+.subtitle{text-align:center;color:#667085;margin-bottom:30px}
+.box{background:white;padding:35px;border-radius:15px;box-shadow:0 5px 25px #00000010;text-align:center}
+.upload{border:2px dashed #3672e8;padding:35px 15px;border-radius:12px;margin-bottom:20px;background:#f8faff}
+input{margin:15px auto;max-width:100%}
+button{border:0;padding:14px 25px;border-radius:8px;background:#2456c5;color:white;font-size:16px;cursor:pointer;margin:8px}
+button:disabled{background:#aaa;cursor:not-allowed}
+#download{background:#16834b;display:none}
+#status{margin-top:18px;color:#2456c5}
+#preview{display:none;text-align:left;background:white;padding:25px;margin-top:20px;color:#222}
 </style>
 </head>
+
 <body>
 <div class="container">
 <h1>Word to PDF Converter</h1>
-<p>Select a DOCX file and convert its text into a PDF.</p>
+<p class="subtitle">Convert your Word documents into PDF files online for free.</p>
+
+<div class="box">
+<div class="upload">
+<h3>Upload Your Word Document</h3>
+<p>Select your DOCX file to convert it into PDF.</p>
 <input type="file" id="file" accept=".docx">
-<br>
-<button id="convert">Convert to PDF</button>
-<p id="status"></p>
 </div>
+
+<button id="convert">Convert to PDF</button>
+<button id="download">Download PDF</button>
+<p id="status">Choose a Word document to get started.</p>
+</div>
+
+<div id="preview"></div>
+</div>
+
 <script>
-document.getElementById("convert").addEventListener("click", async function(){
- const file=document.getElementById("file").files[0];
- const status=document.getElementById("status");
- if(!file){status.textContent="Please select a DOCX file first.";return;}
- if(!window.docx || !window.saveAs){status.textContent="Converter library failed to load. Refresh and try again.";return;}
- this.disabled=true;
- status.textContent="Converting...";
- try{
-  const buffer=await file.arrayBuffer();
-  const result=await docx.Document.load(buffer);
-  const textContent=result.paragraphs.map(p=>p.text).join("\n");
-  const pdfText=textContent || "No readable text found in this document.";
-  const {jsPDF}=await import("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.es.min.js");
-  const pdf=new jsPDF();
-  const lines=pdf.splitTextToSize(pdfText,180);
-  let y=15;
-  for(const line of lines){
-   if(y>280){pdf.addPage();y=15;}
-   pdf.text(line,15,y);y+=7;
-  }
-  pdf.save(file.name.replace(/\.docx$/i,"")+".pdf");
-  status.textContent="PDF created successfully!";
- }catch(e){
-  status.textContent="Conversion failed. Please try another DOCX file.";
-  console.error(e);
- }
- this.disabled=false;
+const fileInput=document.getElementById("file");
+const convertBtn=document.getElementById("convert");
+const downloadBtn=document.getElementById("download");
+const statusText=document.getElementById("status");
+const preview=document.getElementById("preview");
+
+let converted=false;
+
+convertBtn.addEventListener("click",async()=>{
+const file=fileInput.files[0];
+
+if(!file){
+statusText.textContent="Please select a Word document first.";
+return;
+}
+
+if(!file.name.toLowerCase().endsWith(".docx")){
+statusText.textContent="Please upload a DOCX file.";
+return;
+}
+
+convertBtn.disabled=true;
+downloadBtn.style.display="none";
+statusText.textContent="Converting your document...";
+
+try{
+const buffer=await file.arrayBuffer();
+const result=await mammoth.convertToHtml({arrayBuffer:buffer});
+
+if(!result.value.trim()){
+throw new Error("No readable document content found.");
+}
+
+preview.innerHTML=result.value;
+preview.style.display="block";
+converted=true;
+downloadBtn.style.display="inline-block";
+statusText.textContent="Document converted successfully! Click Download PDF.";
+}catch(error){
+statusText.textContent="Conversion failed: "+error.message;
+}finally{
+convertBtn.disabled=false;
+}
+});
+
+downloadBtn.addEventListener("click",()=>{
+if(!converted)return;
+
+const options={
+margin:10,
+filename:"converted-document.pdf",
+image:{type:"jpeg",quality:0.98},
+html2canvas:{scale:2,useCORS:true},
+jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+};
+
+html2pdf().set(options).from(preview).save();
 });
 </script>
 </body>
